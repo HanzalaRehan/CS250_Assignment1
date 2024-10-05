@@ -2,7 +2,7 @@
 Author(s): 1. Hanzala B. Rehan
 Description: A simulated CPU Process Scheduling Algorithm using a Linked List.
 Date created: October 4th, 2024.
-Date last modified: October 4th, 2024.
+Date last modified: October 5th, 2024.
 */
 #include <iostream>
 #include <string>
@@ -170,8 +170,15 @@ int main() {
 
     cout << "Initial Processes: [(P1, 10), (P2, 5), (P3, 8)]" << endl;
 
+    int i = 0;
     while (sc.tail != nullptr) {  // Continue cycling until all processes are completed
         sc.cycle();
+        if (i == 1) {
+            // Adding a new process at a random point.
+            sc.addProcess(6);
+            cout << "New process arrives: P4 (Remaining: 9)" << endl;
+        }
+        i++;
     }
 
     return 0;
