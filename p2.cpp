@@ -1,3 +1,9 @@
+/*
+Author(s): 1. Hanzala B. Rehan
+Description: Checking a 309 digit if it's prime or not, using Rabin-Miller Algorithm.
+Date created: October 5th, 2024.
+Date last modified: October 5th, 2024.
+*/
 #include <iostream>
 #include <string>
 #include <vector>
