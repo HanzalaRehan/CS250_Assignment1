@@ -1,235 +1,204 @@
-/*
-Author(s): 1. Hanzala B. Rehan
-Description: Storing a 1024 bit number in a linked list structure.
-Date created: October 5th, 2024.
-Date last modified: October 5th, 2024.
-*/
 #include <iostream>
 #include <string>
 #include <vector>
+#include <random>
 using namespace std;
 
-
+// Node class to represent each chunk of the large number
 class Node {
-    // Node class for each chunk of the large number
-    public:
-    uint64_t value;  // 64-bit chunk value (up to 19 digits)
-    Node* next;      // Pointer to the next node
+public:
+    uint64_t value; // 64-bit chunk value (up to 19 digits)
+    Node* next; // Pointer to the next node
 
+    // Constructor to initialize a node with a value
     Node(uint64_t val) {
-        //Constructor to initialize the node's value and set the next pointer to nullptr.
         value = val;
         next = nullptr;
     }
 };
 
-
+// LargeNumber class to handle large numbers using a linked list
 class LargeNumber {
-    // LargeNumber class representing a large number using a linked list.
-    public:
-    Node* head;  // Head pointer to the first node
+public:
+    Node* head; // Head pointer to the first node
 
+    // Constructor to initialize an empty LargeNumber
     LargeNumber() {
-        //Constructor to initialize the head pointer to nullptr (empty list).
         head = nullptr;
     }
 
+    // Destructor to free memory of the linked list
     ~LargeNumber() {
-        //Destructor to free the allocated memory for the linked list.
         Node* current = head;
         while (current != nullptr) {
             Node* temp = current;
             current = current->next;
-            delete temp;
+            delete temp; // Free each node
         }
     }
 
+    // Add a chunk (19-digit piece) to the LargeNumber
     void addChunk(uint64_t chunk) {
-        /*
-        Desc: Adds a chunk (64-bit value) to the end of the linked list.
-        Parameters:
-            chunk (uint64_t): Chunk value to be added to the list.
-        */
-        Node* newNode = new Node(chunk);
+        Node* newNode = new Node(chunk); // Create a new node
         if (head == nullptr) {
-            head = newNode;
+            head = newNode; // If empty, set head to new node
         } else {
             Node* current = head;
             while (current->next != nullptr) {
-                current = current->next;
+                current = current->next; // Traverse to the last node
             }
-            current->next = newNode;
+            current->next = newNode; // Add new node at the end
         }
     }
 
+    // Print the LargeNumber (from most significant to least)
     void print() const {
-        /*
-        Desc: Print the large number stored in the linked list in reverse order to reconstruct the full number.
-        */
         printRecursive(head);
     }
 
-    LargeNumber operator+(const LargeNumber& other) const {
+    // Implementation of the Miller-Rabin primality test
+    bool millerRabin(int k) const {
         /*
-        Desc: Overloads the + operator to add two LargeNumber objects.
+        Desc: Performs the Miller-Rabin primality test on the number stored in the linked list.
         Parameters:
-            other (const LargeNumber&): The other LargeNumber object to be added.
-        returns:
-            (LargeNumber): The result of the addition of the two large numbers.
+            k (int): Number of iterations to perform for accuracy.
+        Returns:
+            bool: True if the number is probably prime, False if composite.
         */
-        LargeNumber result;  // Resultant large number
-        Node* currentA = head;   // Pointer for traversing the current large number
-        Node* currentB = other.head;  // Pointer for traversing the other large number
-        uint64_t carry = 0;  // To handle overflow between chunk additions
+        if (head == nullptr) return false; // Return false if the number is empty
 
-        // Traverse both linked lists and add corresponding chunks, including the carry
-        while (currentA != nullptr || currentB != nullptr || carry != 0) {
-            uint64_t valueA = (currentA != nullptr) ? currentA->value : 0;  // Value from this number
-            uint64_t valueB = (currentB != nullptr) ? currentB->value : 0;  // Value from the other number
-
-            // Sum the chunks and the carry
-            uint64_t sum = valueA + valueB + carry;
-
-            // Calculate the new carry (for 19 digits in each chunk)
-            carry = sum / 1000000000000000000ULL;
-            
-            // Store the last 19 digits of the sum in the result linked list
-            result.addChunk(sum % 1000000000000000000ULL);
-
-            // Move to the next chunk in each list (if available)
-            if (currentA != nullptr) currentA = currentA->next;
-            if (currentB != nullptr) currentB = currentB->next;
+        // Convert the linked list chunks into a single 64-bit integer (n)
+        Node* current = head;
+        uint64_t n = 0;
+        while (current != nullptr) {
+            n = n * 1000000000000000000ULL + current->value; // Combine chunks to form the number
+            current = current->next;
         }
 
-        return result;  // Return the resulting large number
-    }
+        // Base cases for small numbers
+        if (n == 2 || n == 3) return true;  // 2 and 3 are prime numbers
+        if (n <= 1 || n % 2 == 0) return false;  // Exclude numbers <= 1 and even numbers
 
-    LargeNumber operator-(const LargeNumber& other) const {
-        /*
-        Desc: Overloads the - operator to subtract two LargeNumber objects.
-        Parameters:
-            other (const LargeNumber&): The other LargeNumber object to be subtracted.
-        returns:
-            (LargeNumber): The result of the subtraction of the two large numbers.
-        Note: The function assumes that the first number is greater than or equal to the second number.
-        */
-        LargeNumber result;  // Resultant large number
-        Node* currentA = head;   // Pointer for traversing the current large number
-        Node* currentB = other.head;  // Pointer for traversing the other large number
-        int64_t borrow = 0;  // To handle borrowing between chunk subtractions
+        // Write n-1 as 2^s * d (factoring out powers of 2)
+        uint64_t d = n - 1;
+        int s = 0;
+        while (d % 2 == 0) {
+            d /= 2;  // Keep dividing by 2 to find d
+            s++;     // Count the powers of 2
+        }
 
-        // Traverse both linked lists and subtract corresponding chunks, considering borrowing
-        while (currentA != nullptr || currentB != nullptr || borrow != 0) {
-            uint64_t valueA = (currentA != nullptr) ? currentA->value : 0;  // Value from this number
-            uint64_t valueB = (currentB != nullptr) ? currentB->value : 0;  // Value from the other number
+        // Random number generator setup
+        random_device rd;      // Seed for randomness
+        mt19937 gen(rd());     // Mersenne Twister RNG
+        uniform_int_distribution<uint64_t> dis(2, n - 2);  // Generate random base in [2, n-2]
 
-            // Subtract the chunks along with any borrowing
-            int64_t diff = static_cast<int64_t>(valueA) - valueB - borrow;
+        // Perform Miller-Rabin test for k iterations
+        for (int i = 0; i < k; i++) {
+            uint64_t a = dis(gen);  // Random base (a)
+            uint64_t x = power(a, d, n);  // Compute a^d % n
 
-            // If the result is negative, borrow from the next chunk
-            if (diff < 0) {
-                diff += 1000000000000000000ULL;  // Borrow by adding the maximum chunk size (19 digits)
-                borrow = 1;  // Set borrow to 1 for the next iteration
-            } else {
-                borrow = 0;  // Reset borrow if no borrowing is needed
+            // If x == 1 or x == n-1, this round passes
+            if (x == 1 || x == n - 1) continue;
+
+            bool found = false;
+            // Perform up to s-1 squaring rounds (check for x^2, x^4, ..., until x == n-1)
+            for (int r = 1; r < s; r++) {
+                x = (x * x) % n;  // Compute x^2 % n
+                if (x == n - 1) {  // If x reaches n-1, the round passes
+                    found = true;
+                    break;
+                }
             }
 
-            result.addChunk(diff);  // Add the result chunk to the linked list
-
-            // Move to the next chunk in each list (if available)
-            if (currentA != nullptr) currentA = currentA->next;
-            if (currentB != nullptr) currentB = currentB->next;
+            // If no break, n is composite
+            if (!found) return false;
         }
 
-        return result;  // Return the resulting large number
+        // If all rounds pass, n is probably prime
+        return true;
     }
 
-    private:
-    void printRecursive(Node* node) const {
+    // Power function used in Miller-Rabin (Exponentiation by Squaring)
+    static uint64_t power(uint64_t base, uint64_t exp, uint64_t mod) {
         /*
-        Desc: Recursively print the linked list starting from the last node.
+        Desc: Computes (base^exp) % mod using Exponentiation by Squaring.
         Parameters:
-            node (Node*): Current node to process.
+            base (uint64_t): Base of the exponentiation.
+            exp (uint64_t): Exponent.
+            mod (uint64_t): Modulus.
+        Returns:
+            uint64_t: Result of (base^exp) % mod.
         */
-        if (node == nullptr) return;
-        printRecursive(node->next);  // Recurse to the end of the list
-        cout << node->value << " ";  // Print the value in reverse order
+        uint64_t result = 1;  // Initialize result to 1
+        base = base % mod;    // Mod the base to reduce its size
+
+        while (exp > 0) {
+            // If the exponent is odd, multiply base with result
+            if (exp % 2 == 1) {
+                result = (result * base) % mod;
+            }
+            exp = exp >> 1;  // Divide exponent by 2 (right shift)
+            base = (base * base) % mod;  // Square the base and mod it
+        }
+
+        return result;  // Return the final result
+    }
+
+private:
+    // Recursive function to print the number from most to least significant
+    void printRecursive(Node* node) const {
+        if (node == nullptr) return; // Base case: nothing to print
+        printRecursive(node->next); // Recursively print the next node
+        cout << node->value << " "; // Print the current node value
     }
 };
-
 
 // Helper function to split the large number into chunks of 19 digits
 vector<uint64_t> splitNumberIntoChunks(const string& number, size_t maxSize) {
     /*
-    Desc: Splits the input number string into chunks of up to 19 digits.
+    Desc: Splits a large string number into chunks of up to 19 digits.
     Parameters:
-        number (string): The large number as a string.
-        maxSize (size_t): Maximum number of digits per chunk (19 for uint64_t).
-    returns:
-        (vector<uint64_t>): Vector of chunks as uint64_t.
+        number (const string&): The number as a string.
+        maxSize (size_t): Maximum size of each chunk (19 digits).
+    Returns:
+        vector<uint64_t>: Vector of chunks as 64-bit unsigned integers.
     */
     vector<uint64_t> chunks;
     size_t length = number.size();
 
+    // Split the number into 19-digit chunks starting from the least significant part
     for (int i = length; i > 0; i -= maxSize) {
-        size_t start = (i >= maxSize) ? i - maxSize : 0;
-        size_t size = (i >= maxSize) ? maxSize : i;
-        string chunkStr = number.substr(start, size);
+        size_t start = (i >= maxSize) ? i - maxSize : 0;  // Determine the starting point of the chunk
+        size_t size = (i >= maxSize) ? maxSize : i;       // Determine the size of the chunk
+        string chunkStr = number.substr(start, size);     // Extract the chunk substring
 
-        // Convert chunk string to an unsigned long long integer
-        uint64_t chunkValue = stoull(chunkStr);
-        chunks.push_back(chunkValue);
+        uint64_t chunkValue = stoull(chunkStr);           // Convert the chunk to an unsigned 64-bit integer
+        chunks.push_back(chunkValue);                     // Add the chunk to the vector
     }
 
-    return chunks;
+    return chunks; // Return the vector of chunks
 }
 
-
 int main() {
-    // Input two large numbers as strings
-    string largeNumber1, largeNumber2;
-    cout << "Enter the first large number: ";
-    cin >> largeNumber1;
-    cout << "Enter the second large number: ";
-    cin >> largeNumber2;
+    // Input number as a string
+    cout << "Enter a number to check for primality: ";
+    string numberStr;
+    cin >> numberStr;
 
-    // Split both numbers into chunks of 19 digits each
-    vector<uint64_t> chunks1 = splitNumberIntoChunks(largeNumber1, 19);
-    vector<uint64_t> chunks2 = splitNumberIntoChunks(largeNumber2, 19);
-
-    // Create LargeNumber linked lists for both numbers
-    LargeNumber ln1, ln2;
-    for (const uint64_t& chunk : chunks1) {
-        ln1.addChunk(chunk);
-    }
-    for (const uint64_t& chunk : chunks2) {
-        ln2.addChunk(chunk);
+    // Create LargeNumber instance and populate it with chunks
+    vector<uint64_t> numberChunks = splitNumberIntoChunks(numberStr, 19); // Split the input number into 19-digit chunks
+    LargeNumber number;
+    for (const uint64_t& chunk : numberChunks) {
+        number.addChunk(chunk); // Add each chunk to the LargeNumber
     }
 
-    // Display the original numbers (reconstructed from chunks)
-    cout << "Stored number 1 chunks (in reverse): " << endl;
-    ln1.print();
-    cout << endl << "Stored number 2 chunks (in reverse): " << endl;
-    ln2.print();
-    cout << endl;
-
-    // Perform addition of the two large numbers
-    LargeNumber sum = ln1 + ln2;
-    cout << "Sum of the two large numbers (in reverse): " << endl;
-    sum.print();
-    cout << endl;
-
-    // Perform subtraction of the two large numbers
-    if (largeNumber1 >= largeNumber2) {
-        LargeNumber difference = ln1 - ln2;
-        cout << "Difference (ln1 - ln2) (in reverse): " << endl;
-        difference.print();
+    // Perform Miller-Rabin primality test
+    int k = 10; // Number of rounds (more rounds = higher confidence in result)
+    if (number.millerRabin(k)) {
+        cout << "The number is probably prime." << endl;
     } else {
-        LargeNumber difference = ln2 - ln1;
-        cout << "Difference (ln2 - ln1) (in reverse): " << endl;
-        difference.print();
+        cout << "The number is composite." << endl;
     }
-    cout << endl;
 
     return 0;
 }
